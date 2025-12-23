@@ -155,7 +155,7 @@ ipcMain.handle('install-multiple', async (event, programs) => {
   }
   
   return results;
-};
+});
 
 // Get system info
 ipcMain.handle('get-system-info', async () => {
