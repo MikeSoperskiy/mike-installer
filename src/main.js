@@ -2,61 +2,94 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const { exec } = require('child_process');
 const { promisify } = require('util');
-const https = require('https');
-const http = require('http');
+const axios = require('axios');
 const fs = require('fs');
 const os = require('os');
+const Registry = require('winreg');
 
 const execAsync = promisify(exec);
 
 let mainWindow;
 
-// Download file from URL
-function downloadFile(url, destPath) {
-  return new Promise((resolve, reject) => {
-    const protocol = url.startsWith('https') ? https : http;
-    const file = fs.createWriteStream(destPath);
-    
-    const request = protocol.get(url, (response) => {
-      // Handle redirects
-      if (response.statusCode === 301 || response.statusCode === 302) {
-        file.close();
-        fs.unlinkSync(destPath);
-        return downloadFile(response.headers.location, destPath)
-          .then(resolve)
-          .catch(reject);
-      }
-      
-      if (response.statusCode !== 200) {
-        reject(new Error(`Failed to download: ${response.statusCode}`));
-        return;
-      }
-      
-      const totalSize = parseInt(response.headers['content-length'], 10);
-      let downloadedSize = 0;
-      
-      response.on('data', (chunk) => {
-        downloadedSize += chunk.length;
-        const progress = totalSize ? Math.round((downloadedSize / totalSize) * 100) : 0;
-        mainWindow?.webContents.send('download-progress', { progress });
-      });
-      
-      response.pipe(file);
-      
-      file.on('finish', () => {
-        file.close();
-        resolve(destPath);
-      });
+// Download file using axios with progress
+async function downloadFile(url, destPath, onProgress) {
+  try {
+    const response = await axios({
+      url,
+      method: 'GET',
+      responseType: 'stream',
+      maxRedirects: 5,
+      timeout: 60000,
+      httpsAgent: new (require('https').Agent)({
+        rejectUnauthorized: false // For problematic SSL certificates
+      })
     });
-    
-    request.on('error', (err) => {
-      fs.unlinkSync(destPath);
-      reject(err);
+
+    const totalLength = response.headers['content-length'];
+    let downloadedLength = 0;
+
+    const writer = fs.createWriteStream(destPath);
+
+    response.data.on('data', (chunk) => {
+      downloadedLength += chunk.length;
+      if (totalLength && onProgress) {
+        const progress = Math.round((downloadedLength / totalLength) * 100);
+        onProgress(progress);
+      }
     });
-    
-    file.on('error', (err) => {
+
+    response.data.pipe(writer);
+
+    return new Promise((resolve, reject) => {
+      writer.on('finish', () => resolve(destPath));
+      writer.on('error', reject);
+    });
+  } catch (error) {
+    if (fs.existsSync(destPath)) {
       fs.unlinkSync(destPath);
-      reject(err);
+    }
+    throw error;
+  }
+}
+
+// Check if program is installed via Windows Registry
+async function checkInstalled(programName) {
+  return new Promise((resolve) => {
+    const regPaths = [
+      '\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
+      '\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall'
+    ];
+
+    let checked = 0;
+    let found = false;
+
+    regPaths.forEach(regPath => {
+      const regKey = new Registry({
+        hive: Registry.HKLM,
+        key: regPath
+      });
+
+      regKey.keys((err, items) => {
+        checked++;
+        if (!err && items) {
+          items.forEach(item => {
+            item.values((err, values) => {
+              if (!err && values) {
+                values.forEach(value => {
+                  if (value.name === 'DisplayName' && 
+                      value.value.toLowerCase().includes(programName.toLowerCase())) {
+                    found = true;
+                  }
+                });
+              }
+            });
+          });
+        }
+        
+        if (checked === regPaths.length) {
+          setTimeout(() => resolve(found), 500);
+        }
+      });
     });
   });
 }
@@ -64,7 +97,7 @@ function downloadFile(url, destPath) {
 // Check if winget is available
 async function checkWinget() {
   try {
-    await execAsync('winget --version');
+    await execAsync('winget --version', { timeout: 5000 });
     return true;
   } catch (error) {
     return false;
@@ -91,7 +124,7 @@ function createWindow() {
   mainWindow.loadFile('src/renderer/index.html');
 
   // Uncomment for debugging
-  mainWindow.webContents.openDevTools();
+  // mainWindow.webContents.openDevTools();
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -115,29 +148,11 @@ app.on('window-all-closed', () => {
 });
 
 // Check if a program is installed
-ipcMain.handle('check-installed', async (event, programId) => {
+ipcMain.handle('check-installed', async (event, programName) => {
   try {
-    // Check in common installation paths
-    const programFiles = process.env['ProgramFiles'];
-    const programFilesX86 = process.env['ProgramFiles(x86)'];
-    const localAppData = process.env['LOCALAPPDATA'];
-    
-    // Common program paths
-    const pathsToCheck = [
-      path.join(programFiles, programId),
-      path.join(programFilesX86, programId),
-      path.join(localAppData, programId)
-    ];
-    
-    for (const checkPath of pathsToCheck) {
-      if (fs.existsSync(checkPath)) {
-        return true;
-      }
-    }
-    
-    return false;
+    return await checkInstalled(programName);
   } catch (error) {
-    console.error(`Check installed error for ${programId}:`, error.message);
+    console.error(`Check installed error for ${programName}:`, error.message);
     return false;
   }
 });
@@ -151,7 +166,7 @@ ipcMain.handle('install-program', async (event, program) => {
     mainWindow.webContents.send('install-progress', {
       programId: program.id,
       status: 'installing',
-      message: `Установка ${program.name}...`
+      message: `Подготовка установки ${program.name}...`
     });
 
     // Use winget if specified
@@ -161,16 +176,22 @@ ipcMain.handle('install-program', async (event, program) => {
         throw new Error('Winget не доступен. Установите App Installer из Microsoft Store.');
       }
       
+      mainWindow.webContents.send('install-progress', {
+        programId: program.id,
+        status: 'installing',
+        message: `Установка ${program.name} через winget...`
+      });
+      
       const command = `winget install --id "${program.wingetId}" --silent --accept-package-agreements --accept-source-agreements`;
-      console.log(`Installing ${program.name} with winget: ${command}`);
+      console.log(`[WINGET] ${command}`);
       
       const { stdout, stderr } = await execAsync(command, { 
-        timeout: 300000,
+        timeout: 600000, // 10 minutes
         maxBuffer: 1024 * 1024 * 10
       });
       
-      console.log(`Winget output:`, stdout);
-      if (stderr) console.error(`Winget stderr:`, stderr);
+      console.log(`[WINGET SUCCESS] ${program.name}`);
+      if (stderr) console.error(`[WINGET STDERR]`, stderr);
     }
     // Use direct download
     else if (program.downloadUrl) {
@@ -181,12 +202,20 @@ ipcMain.handle('install-program', async (event, program) => {
       });
       
       // Determine file extension
-      const urlPath = new URL(program.downloadUrl).pathname;
-      const extension = urlPath.endsWith('.msi') ? '.msi' : '.exe';
-      installerPath = path.join(tempDir, `${program.id}_installer${extension}`);
+      const extension = program.downloadUrl.includes('.msi') || program.installArgs?.includes('msiexec') ? '.msi' : '.exe';
+      installerPath = path.join(tempDir, `mike_installer_${program.id}_${Date.now()}${extension}`);
       
-      console.log(`Downloading ${program.name} from ${program.downloadUrl}`);
-      await downloadFile(program.downloadUrl, installerPath);
+      console.log(`[DOWNLOAD] ${program.name} from ${program.downloadUrl}`);
+      
+      await downloadFile(program.downloadUrl, installerPath, (progress) => {
+        mainWindow?.webContents.send('install-progress', {
+          programId: program.id,
+          status: 'downloading',
+          message: `Скачивание ${program.name}: ${progress}%`
+        });
+      });
+      
+      console.log(`[DOWNLOAD SUCCESS] ${installerPath}`);
       
       mainWindow.webContents.send('install-progress', {
         programId: program.id,
@@ -195,29 +224,32 @@ ipcMain.handle('install-program', async (event, program) => {
       });
       
       // Run installer
-      const installArgs = program.installArgs || '';
+      const installArgs = program.installArgs || (extension === '.msi' ? '/quiet /norestart' : '/S');
       const command = extension === '.msi' 
         ? `msiexec /i "${installerPath}" ${installArgs}`
         : `"${installerPath}" ${installArgs}`;
       
-      console.log(`Running installer: ${command}`);
+      console.log(`[INSTALL] ${command}`);
       
       const { stdout, stderr } = await execAsync(command, {
-        timeout: 300000,
+        timeout: 600000, // 10 minutes
         maxBuffer: 1024 * 1024 * 10
       });
       
-      console.log(`Installation output:`, stdout);
-      if (stderr) console.error(`Installation stderr:`, stderr);
+      console.log(`[INSTALL SUCCESS] ${program.name}`);
+      if (stderr) console.error(`[INSTALL STDERR]`, stderr);
       
       // Clean up installer
-      try {
-        if (fs.existsSync(installerPath)) {
-          fs.unlinkSync(installerPath);
+      setTimeout(() => {
+        try {
+          if (fs.existsSync(installerPath)) {
+            fs.unlinkSync(installerPath);
+            console.log(`[CLEANUP] Removed ${installerPath}`);
+          }
+        } catch (cleanupError) {
+          console.error('[CLEANUP ERROR]', cleanupError.message);
         }
-      } catch (cleanupError) {
-        console.error('Failed to cleanup installer:', cleanupError);
-      }
+      }, 2000);
     } else {
       throw new Error('Не указан URL для скачивания или Winget ID');
     }
@@ -225,29 +257,27 @@ ipcMain.handle('install-program', async (event, program) => {
     mainWindow.webContents.send('install-progress', {
       programId: program.id,
       status: 'completed',
-      message: `${program.name} успешно установлен`
+      message: `${program.name} успешно установлен!`
     });
 
     return { success: true };
   } catch (error) {
-    console.error(`Installation error for ${program.name}:`, error);
+    console.error(`[ERROR] Installation failed for ${program.name}:`, error);
     
     // Clean up on error
     if (installerPath && fs.existsSync(installerPath)) {
       try {
         fs.unlinkSync(installerPath);
-      } catch (cleanupError) {
-        console.error('Failed to cleanup installer:', cleanupError);
-      }
+      } catch (e) {}
     }
     
     let errorMessage = error.message;
     
-    if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
+    if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
       errorMessage = 'Ошибка сети. Проверьте интернет-соединение.';
     } else if (error.message.includes('EACCES') || error.message.includes('permission denied')) {
       errorMessage = 'Нет прав доступа. Запустите от имени администратора.';
-    } else if (error.killed || error.message.includes('timeout')) {
+    } else if (error.killed) {
       errorMessage = 'Превышено время ожидания.';
     }
     
@@ -261,32 +291,13 @@ ipcMain.handle('install-program', async (event, program) => {
   }
 });
 
-// Install multiple programs
-ipcMain.handle('install-multiple', async (event, programs) => {
-  const results = [];
-  
-  for (const program of programs) {
-    try {
-      const handler = ipcMain._events['install-program'];
-      const result = await handler(event, program);
-      results.push({ program: program.id, result });
-    } catch (error) {
-      console.error(`Error in install-multiple for ${program.id}:`, error);
-      results.push({ program: program.id, result: { success: false, error: error.message } });
-    }
-  }
-  
-  return results;
-});
-
 // Get system info
 ipcMain.handle('get-system-info', async () => {
   try {
     const { stdout } = await execAsync('systeminfo | findstr /B /C:"OS Name" /C:"OS Version"');
     return stdout;
   } catch (error) {
-    console.error('System info error:', error);
-    return 'Unable to retrieve system info';
+    return `Windows ${os.release()}`;
   }
 });
 
