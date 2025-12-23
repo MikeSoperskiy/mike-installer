@@ -8,7 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
   loadCustomPrograms();
   renderCategories();
   setupEventListeners();
-  checkInstalledPrograms();
+  // Disabled - causes errors with new download system
+  // checkInstalledPrograms();
 });
 
 // Render all categories
@@ -196,24 +197,9 @@ async function installProgram(program) {
   }
 }
 
-// Check installed programs
+// Check installed programs - disabled
 async function checkInstalledPrograms() {
-  Object.values(PROGRAMS).forEach(category => {
-    category.programs.forEach(async program => {
-      try {
-        const isInstalled = await window.electronAPI.checkInstalled(program.wingetId);
-        if (isInstalled) {
-          installedPrograms.add(program.id);
-          const card = document.querySelector(`[data-program-id="${program.id}"]`);
-          const statusElement = document.getElementById(`status-${program.id}`);
-          if (card) card.classList.add('installed');
-          if (statusElement) statusElement.textContent = '✅ Установлено';
-        }
-      } catch (error) {
-        console.error('Check installation error:', error);
-      }
-    });
-  });
+  // Disabled to avoid errors with path checking
 }
 
 // Update status bar
@@ -278,7 +264,6 @@ function setupModal() {
     
     addCustomProgram(programData);
     renderCategories();
-    checkInstalledPrograms();
     
     form.reset();
     modal.style.display = 'none';
