@@ -7,16 +7,16 @@ const PROGRAMS = {
       {
         id: 'chrome',
         name: 'Google Chrome',
-        downloadUrl: 'https://dl.google.com/chrome/install/standalonesetup64.exe',
+        downloadUrl: 'https://dl.google.com/tag/s/appguid%3D%7B8A69D345-D564-463C-AFF1-A69D9E530F96%7D%26iid%3D%7B00000000-0000-0000-0000-000000000000%7D%26lang%3Dru%26browser%3D4%26usagestats%3D0%26appname%3DGoogle%2520Chrome%26needsadmin%3Dprefers%26ap%3Dx64-stable-statsdef_1%26installdataindex%3Dempty/update2/installers/ChromeSetup.exe',
         description: 'Популярный браузер от Google',
         installArgs: '/silent /install'
       },
       {
         id: 'vivaldi',
         name: 'Vivaldi',
-        downloadUrl: 'https://downloads.vivaldi.com/stable/Vivaldi.6.5.3206.63.x64.exe',
-        description: 'Гибкий браузер с настройками',
-        installArgs: '--vivaldi-silent --do-not-launch-chrome'
+        wingetId: 'Vivaldi.Vivaldi',
+        useWinget: true,
+        description: 'Гибкий браузер с настройками'
       }
     ]
   },
@@ -34,14 +34,14 @@ const PROGRAMS = {
       {
         id: 'pycharm',
         name: 'PyCharm Community',
-        downloadUrl: 'https://download.jetbrains.com/python/pycharm-community-2024.3.exe',
-        description: 'IDE для Python',
-        installArgs: '/S /CONFIG=https://raw.githubusercontent.com/MikeSoperskiy/mike-installer/main/configs/pycharm-silent.config'
+        wingetId: 'JetBrains.PyCharm.Community',
+        useWinget: true,
+        description: 'IDE для Python'
       },
       {
         id: 'vscode',
         name: 'Visual Studio Code',
-        downloadUrl: 'https://code.visualstudio.com/sha/download?build=stable&os=win32-x64-user',
+        downloadUrl: 'https://update.code.visualstudio.com/latest/win32-x64-user/stable',
         description: 'Легкий редактор кода',
         installArgs: '/VERYSILENT /MERGETASKS=!runcode'
       },
