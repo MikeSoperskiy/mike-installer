@@ -1,4 +1,4 @@
-// Database of programs
+// Database of programs with direct download URLs
 const PROGRAMS = {
   browsers: {
     name: '🌐 Браузеры',
@@ -7,14 +7,16 @@ const PROGRAMS = {
       {
         id: 'chrome',
         name: 'Google Chrome',
-        wingetId: 'Google.Chrome',
-        description: 'Популярный браузер от Google'
+        downloadUrl: 'https://dl.google.com/chrome/install/standalonesetup64.exe',
+        description: 'Популярный браузер от Google',
+        installArgs: '/silent /install'
       },
       {
         id: 'vivaldi',
         name: 'Vivaldi',
-        wingetId: 'Vivaldi.Vivaldi',
-        description: 'Гибкий браузер с настройками'
+        downloadUrl: 'https://downloads.vivaldi.com/stable/Vivaldi.6.5.3206.63.x64.exe',
+        description: 'Гибкий браузер с настройками',
+        installArgs: '--vivaldi-silent --do-not-launch-chrome'
       }
     ]
   },
@@ -26,37 +28,43 @@ const PROGRAMS = {
         id: 'webstorm',
         name: 'WebStorm',
         wingetId: 'JetBrains.WebStorm',
+        useWinget: true,
         description: 'IDE для web-разработки'
       },
       {
         id: 'pycharm',
-        name: 'PyCharm',
-        wingetId: 'JetBrains.PyCharm.Community',
-        description: 'IDE для Python'
+        name: 'PyCharm Community',
+        downloadUrl: 'https://download.jetbrains.com/python/pycharm-community-2024.3.exe',
+        description: 'IDE для Python',
+        installArgs: '/S /CONFIG=https://raw.githubusercontent.com/MikeSoperskiy/mike-installer/main/configs/pycharm-silent.config'
       },
       {
         id: 'vscode',
         name: 'Visual Studio Code',
-        wingetId: 'Microsoft.VisualStudioCode',
-        description: 'Легкий редактор кода'
+        downloadUrl: 'https://code.visualstudio.com/sha/download?build=stable&os=win32-x64-user',
+        description: 'Легкий редактор кода',
+        installArgs: '/VERYSILENT /MERGETASKS=!runcode'
       },
       {
         id: 'visualstudio',
         name: 'Visual Studio 2022',
         wingetId: 'Microsoft.VisualStudio.2022.Community',
+        useWinget: true,
         description: 'Полноценная IDE от Microsoft'
       },
       {
         id: 'git',
         name: 'Git',
-        wingetId: 'Git.Git',
-        description: 'Система контроля версий'
+        downloadUrl: 'https://github.com/git-for-windows/git/releases/download/v2.43.0.windows.1/Git-2.43.0-64-bit.exe',
+        description: 'Система контроля версий',
+        installArgs: '/VERYSILENT /NORESTART'
       },
       {
         id: 'github-desktop',
         name: 'GitHub Desktop',
-        wingetId: 'GitHub.GitHubDesktop',
-        description: 'GUI для работы с Git'
+        downloadUrl: 'https://central.github.com/deployments/desktop/desktop/latest/win32',
+        description: 'GUI для работы с Git',
+        installArgs: '--silent'
       }
     ]
   },
@@ -67,26 +75,30 @@ const PROGRAMS = {
       {
         id: 'rust',
         name: 'Rust',
-        wingetId: 'Rustlang.Rust.MSVC',
-        description: 'Язык системного программирования'
+        downloadUrl: 'https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe',
+        description: 'Язык системного программирования',
+        installArgs: '-y'
       },
       {
         id: 'python',
-        name: 'Python',
-        wingetId: 'Python.Python.3.12',
-        description: 'Универсальный язык программирования'
+        name: 'Python 3.12',
+        downloadUrl: 'https://www.python.org/ftp/python/3.12.1/python-3.12.1-amd64.exe',
+        description: 'Универсальный язык программирования',
+        installArgs: '/quiet InstallAllUsers=1 PrependPath=1'
       },
       {
         id: 'nodejs',
         name: 'Node.js',
-        wingetId: 'OpenJS.NodeJS',
-        description: 'JavaScript runtime'
+        downloadUrl: 'https://nodejs.org/dist/v20.11.0/node-v20.11.0-x64.msi',
+        description: 'JavaScript runtime',
+        installArgs: '/quiet /norestart'
       },
       {
         id: 'go',
         name: 'Go',
-        wingetId: 'GoLang.Go',
-        description: 'Язык от Google'
+        downloadUrl: 'https://go.dev/dl/go1.21.6.windows-amd64.msi',
+        description: 'Язык от Google',
+        installArgs: '/quiet /norestart'
       }
     ]
   },
@@ -97,20 +109,15 @@ const PROGRAMS = {
       {
         id: 'msys2',
         name: 'MSYS2',
-        wingetId: 'MSYS2.MSYS2',
-        description: 'Unix-подобная среда для Windows'
-      },
-      {
-        id: 'gcc',
-        name: 'MinGW-w64 GCC',
-        wingetId: 'Msys2.Msys2',
-        description: 'GCC компилятор для Windows',
-        installCommand: 'winget install --id MSYS2.MSYS2 --silent && C:\\msys64\\usr\\bin\\bash.exe -lc "pacman -S --noconfirm mingw-w64-x86_64-gcc"'
+        downloadUrl: 'https://github.com/msys2/msys2-installer/releases/download/2024-01-13/msys2-x86_64-20240113.exe',
+        description: 'Unix-подобная среда для Windows',
+        installArgs: 'install --root C:\\msys64 --confirm-command'
       },
       {
         id: 'cpp-build-tools',
         name: 'C++ Build Tools',
         wingetId: 'Microsoft.VisualStudio.2022.BuildTools',
+        useWinget: true,
         description: 'Microsoft C++ Build Tools'
       }
     ]
@@ -122,26 +129,30 @@ const PROGRAMS = {
       {
         id: 'steam',
         name: 'Steam',
-        wingetId: 'Valve.Steam',
-        description: 'Платформа для игр'
+        downloadUrl: 'https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe',
+        description: 'Платформа для игр',
+        installArgs: '/S'
       },
       {
         id: 'discord',
         name: 'Discord',
-        wingetId: 'Discord.Discord',
-        description: 'Мессенджер для геймеров'
+        downloadUrl: 'https://discord.com/api/downloads/distributions/app/installers/latest?channel=stable&platform=win&arch=x64',
+        description: 'Мессенджер для геймеров',
+        installArgs: '-s'
       },
       {
         id: 'yandex-music',
         name: 'Яндекс Музыка',
-        wingetId: 'Yandex.Music',
-        description: 'Музыкальный стриминг'
+        downloadUrl: 'https://music-desktop-application.s3.yandex.net/stable/YandexMusicSetup.exe',
+        description: 'Музыкальный стриминг',
+        installArgs: '/S'
       },
       {
         id: 'hiddify',
         name: 'Hiddify',
-        wingetId: 'Hiddify.Hiddify',
-        description: 'VPN клиент'
+        downloadUrl: 'https://github.com/hiddify/hiddify-next/releases/download/v2.0.5/Hiddify-Windows-Setup-x64.exe',
+        description: 'VPN клиент',
+        installArgs: '/S'
       }
     ]
   }
@@ -185,8 +196,11 @@ function addCustomProgram(programData) {
   const newProgram = {
     id: 'custom-' + Date.now(),
     name: programData.name,
+    downloadUrl: programData.downloadUrl,
     wingetId: programData.wingetId,
+    useWinget: programData.useWinget || false,
     description: programData.description || '',
+    installArgs: programData.installArgs || '',
     custom: true
   };
   
