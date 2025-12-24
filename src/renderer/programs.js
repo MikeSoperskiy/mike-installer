@@ -1,4 +1,4 @@
-// Database of programs with direct download URLs
+// Database of programs with stable, long-term download URLs
 const PROGRAMS = {
   browsers: {
     name: '🌐 Браузеры',
@@ -7,9 +7,18 @@ const PROGRAMS = {
       {
         id: 'chrome',
         name: 'Google Chrome',
-        downloadUrl: 'https://dl.google.com/tag/s/appguid%3D%7B8A69D345-D564-463C-AFF1-A69D9E530F96%7D%26iid%3D%7B00000000-0000-0000-0000-000000000000%7D%26lang%3Dru%26browser%3D4%26usagestats%3D0%26appname%3DGoogle%2520Chrome%26needsadmin%3Dprefers%26ap%3Dx64-stable-statsdef_1%26installdataindex%3Dempty/update2/installers/ChromeSetup.exe',
+        // Google's official stable download endpoint - always latest version
+        downloadUrl: 'https://dl.google.com/chrome/install/latest/chrome_installer.exe',
         description: 'Популярный браузер от Google',
         installArgs: '/silent /install'
+      },
+      {
+        id: 'firefox',
+        name: 'Mozilla Firefox',
+        // Mozilla's official latest stable release
+        downloadUrl: 'https://download.mozilla.org/?product=firefox-latest&os=win64&lang=ru',
+        description: 'Быстрый и приватный браузер',
+        installArgs: '/S'
       },
       {
         id: 'vivaldi',
@@ -25,6 +34,14 @@ const PROGRAMS = {
     icon: '💻',
     programs: [
       {
+        id: 'vscode',
+        name: 'Visual Studio Code',
+        // Microsoft's stable update endpoint
+        downloadUrl: 'https://update.code.visualstudio.com/latest/win32-x64-user/stable',
+        description: 'Легкий редактор кода',
+        installArgs: '/VERYSILENT /MERGETASKS=!runcode,addcontextmenufiles,addcontextmenufolders'
+      },
+      {
         id: 'webstorm',
         name: 'WebStorm',
         wingetId: 'JetBrains.WebStorm',
@@ -39,13 +56,6 @@ const PROGRAMS = {
         description: 'IDE для Python'
       },
       {
-        id: 'vscode',
-        name: 'Visual Studio Code',
-        downloadUrl: 'https://update.code.visualstudio.com/latest/win32-x64-user/stable',
-        description: 'Легкий редактор кода',
-        installArgs: '/VERYSILENT /MERGETASKS=!runcode'
-      },
-      {
         id: 'visualstudio',
         name: 'Visual Studio 2022',
         wingetId: 'Microsoft.VisualStudio.2022.Community',
@@ -55,13 +65,15 @@ const PROGRAMS = {
       {
         id: 'git',
         name: 'Git',
-        downloadUrl: 'https://github.com/git-for-windows/git/releases/download/v2.43.0.windows.1/Git-2.43.0-64-bit.exe',
+        // GitHub's official latest release API
+        downloadUrl: 'https://github.com/git-for-windows/git/releases/latest/download/Git-2.47.1-64-bit.exe',
         description: 'Система контроля версий',
-        installArgs: '/VERYSILENT /NORESTART'
+        installArgs: '/VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS /COMPONENTS="icons,ext\\reg\\shellhere,assoc,assoc_sh"'
       },
       {
         id: 'github-desktop',
         name: 'GitHub Desktop',
+        // GitHub's stable deployment endpoint
         downloadUrl: 'https://central.github.com/deployments/desktop/desktop/latest/win32',
         description: 'GUI для работы с Git',
         installArgs: '--silent'
@@ -73,32 +85,43 @@ const PROGRAMS = {
     icon: '🔥',
     programs: [
       {
-        id: 'rust',
-        name: 'Rust',
-        downloadUrl: 'https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe',
-        description: 'Язык системного программирования',
-        installArgs: '-y'
-      },
-      {
         id: 'python',
         name: 'Python 3.12',
-        downloadUrl: 'https://www.python.org/ftp/python/3.12.1/python-3.12.1-amd64.exe',
+        // Python.org latest stable 3.12
+        downloadUrl: 'https://www.python.org/ftp/python/3.12.8/python-3.12.8-amd64.exe',
         description: 'Универсальный язык программирования',
-        installArgs: '/quiet InstallAllUsers=1 PrependPath=1'
+        installArgs: '/quiet InstallAllUsers=1 PrependPath=1 Include_test=0'
       },
       {
         id: 'nodejs',
-        name: 'Node.js',
-        downloadUrl: 'https://nodejs.org/dist/v20.11.0/node-v20.11.0-x64.msi',
+        name: 'Node.js LTS',
+        // Node.js official LTS download
+        downloadUrl: 'https://nodejs.org/dist/v22.12.0/node-v22.12.0-x64.msi',
         description: 'JavaScript runtime',
-        installArgs: '/quiet /norestart'
+        installArgs: '/quiet /norestart ADDLOCAL=ALL'
+      },
+      {
+        id: 'rust',
+        name: 'Rust',
+        // Rust official stable rustup
+        downloadUrl: 'https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe',
+        description: 'Язык системного программирования',
+        installArgs: '-y --default-toolchain stable'
       },
       {
         id: 'go',
         name: 'Go',
-        downloadUrl: 'https://go.dev/dl/go1.21.6.windows-amd64.msi',
+        // Go official latest stable
+        downloadUrl: 'https://go.dev/dl/go1.23.4.windows-amd64.msi',
         description: 'Язык от Google',
         installArgs: '/quiet /norestart'
+      },
+      {
+        id: 'java',
+        name: 'Java JDK 21',
+        wingetId: 'Oracle.JDK.21',
+        useWinget: true,
+        description: 'Java Development Kit'
       }
     ]
   },
@@ -107,18 +130,33 @@ const PROGRAMS = {
     icon: '🛠️',
     programs: [
       {
-        id: 'msys2',
-        name: 'MSYS2',
-        downloadUrl: 'https://github.com/msys2/msys2-installer/releases/download/2024-01-13/msys2-x86_64-20240113.exe',
-        description: 'Unix-подобная среда для Windows',
-        installArgs: 'install --root C:\\msys64 --confirm-command'
+        id: 'docker',
+        name: 'Docker Desktop',
+        wingetId: 'Docker.DockerDesktop',
+        useWinget: true,
+        description: 'Контейнеризация приложений'
       },
       {
-        id: 'cpp-build-tools',
-        name: 'C++ Build Tools',
-        wingetId: 'Microsoft.VisualStudio.2022.BuildTools',
+        id: 'postman',
+        name: 'Postman',
+        wingetId: 'Postman.Postman',
         useWinget: true,
-        description: 'Microsoft C++ Build Tools'
+        description: 'API testing tool'
+      },
+      {
+        id: '7zip',
+        name: '7-Zip',
+        downloadUrl: 'https://www.7-zip.org/a/7z2408-x64.exe',
+        description: 'Архиватор файлов',
+        installArgs: '/S'
+      },
+      {
+        id: 'notepadplusplus',
+        name: 'Notepad++',
+        // Notepad++ latest release
+        downloadUrl: 'https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v8.7.4/npp.8.7.4.Installer.x64.exe',
+        description: 'Продвинутый текстовый редактор',
+        installArgs: '/S'
       }
     ]
   },
@@ -129,6 +167,7 @@ const PROGRAMS = {
       {
         id: 'steam',
         name: 'Steam',
+        // Steam official CDN
         downloadUrl: 'https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe',
         description: 'Платформа для игр',
         installArgs: '/S'
@@ -136,23 +175,33 @@ const PROGRAMS = {
       {
         id: 'discord',
         name: 'Discord',
+        // Discord stable API endpoint
         downloadUrl: 'https://discord.com/api/downloads/distributions/app/installers/latest?channel=stable&platform=win&arch=x64',
         description: 'Мессенджер для геймеров',
         installArgs: '-s'
       },
       {
-        id: 'yandex-music',
-        name: 'Яндекс Музыка',
-        downloadUrl: 'https://music-desktop-application.s3.yandex.net/stable/YandexMusicSetup.exe',
-        description: 'Музыкальный стриминг',
+        id: 'spotify',
+        name: 'Spotify',
+        wingetId: 'Spotify.Spotify',
+        useWinget: true,
+        description: 'Музыкальный стриминг'
+      },
+      {
+        id: 'vlc',
+        name: 'VLC Media Player',
+        // VLC latest stable
+        downloadUrl: 'https://get.videolan.org/vlc/last/win64/vlc-3.0.21-win64.exe',
+        description: 'Универсальный медиаплеер',
         installArgs: '/S'
       },
       {
-        id: 'hiddify',
-        name: 'Hiddify',
-        downloadUrl: 'https://github.com/hiddify/hiddify-next/releases/download/v2.0.5/Hiddify-Windows-Setup-x64.exe',
-        description: 'VPN клиент',
-        installArgs: '/S'
+        id: 'telegram',
+        name: 'Telegram',
+        // Telegram official download
+        downloadUrl: 'https://telegram.org/dl/desktop/win64',
+        description: 'Мессенджер',
+        installArgs: '/VERYSILENT /NORESTART'
       }
     ]
   }
