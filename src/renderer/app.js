@@ -2,14 +2,14 @@
 let selectedPrograms = new Set();
 let installedPrograms = new Set();
 let installingPrograms = new Set();
+let currentContextProgram = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
   loadCustomPrograms();
   renderCategories();
   setupEventListeners();
-  // Disabled - causes errors with new download system
-  // checkInstalledPrograms();
+  checkInstalledPrograms();
 });
 
 // Render all categories
@@ -63,36 +63,75 @@ function createProgramCard(program) {
   card.innerHTML = `
     <div class="program-name">${program.name}</div>
     <div class="program-description">${program.description}</div>
-    <div class="program-status" id="status-${program.id}"></div>
+    <div class="program-status" id="status-${program.id}">Проверка...</div>
   `;
   
-  card.addEventListener('click', () => toggleProgramSelection(program.id));
+  // Right click to open context menu
+  card.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    showContextMenu(e.clientX, e.clientY, program);
+  });
+  
+  // Left click to open context menu
+  card.addEventListener('click', (e) => {
+    if (!installingPrograms.has(program.id)) {
+      showContextMenu(e.clientX, e.clientY, program);
+    }
+  });
   
   return card;
 }
 
-// Toggle program selection
-function toggleProgramSelection(programId) {
-  if (installingPrograms.has(programId) || installedPrograms.has(programId)) {
-    return;
-  }
+// Show context menu
+function showContextMenu(x, y, program) {
+  const menu = document.getElementById('contextMenu');
+  currentContextProgram = program;
   
-  const card = document.querySelector(`[data-program-id="${programId}"]`);
+  // Update menu items based on program state
+  const selectItem = document.getElementById('ctxSelect');
+  const installItem = document.getElementById('ctxInstall');
+  const uninstallItem = document.getElementById('ctxUninstall');
   
-  if (selectedPrograms.has(programId)) {
-    selectedPrograms.delete(programId);
-    card.classList.remove('selected');
+  // Update select text
+  if (selectedPrograms.has(program.id)) {
+    selectItem.querySelector('.ctx-text').textContent = 'Отменить выбор';
   } else {
-    selectedPrograms.add(programId);
-    card.classList.add('selected');
+    selectItem.querySelector('.ctx-text').textContent = 'Выбрать для пакетной установки';
   }
   
-  updateSelectedCount();
+  // Show/hide based on installation status
+  if (installedPrograms.has(program.id)) {
+    installItem.style.display = 'none';
+    uninstallItem.style.display = 'flex';
+  } else {
+    installItem.style.display = 'flex';
+    uninstallItem.style.display = 'none';
+  }
+  
+  // Position menu
+  menu.style.display = 'block';
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+  
+  // Adjust if menu goes off screen
+  const rect = menu.getBoundingClientRect();
+  if (rect.right > window.innerWidth) {
+    menu.style.left = (x - rect.width) + 'px';
+  }
+  if (rect.bottom > window.innerHeight) {
+    menu.style.top = (y - rect.height) + 'px';
+  }
+}
+
+// Hide context menu
+function hideContextMenu() {
+  document.getElementById('contextMenu').style.display = 'none';
+  currentContextProgram = null;
 }
 
 // Update selected count
 function updateSelectedCount() {
-  document.getElementById('selectedCount').textContent = `Выбрано: ${selectedPrograms.size}`;
+  document.getElementById('selectedCountInline').textContent = selectedPrograms.size;
 }
 
 // Select all programs
@@ -197,9 +236,53 @@ async function installProgram(program) {
   }
 }
 
-// Check installed programs - disabled
+// Uninstall program
+async function uninstallProgram(program) {
+  const card = document.querySelector(`[data-program-id="${program.id}"]`);
+  const statusElement = document.getElementById(`status-${program.id}`);
+  
+  if (statusElement) {
+    statusElement.textContent = 'Удаление...';
+  }
+  
+  try {
+    const result = await window.electronAPI.uninstallProgram(program);
+    
+    if (result.success) {
+      installedPrograms.delete(program.id);
+      if (card) {
+        card.classList.remove('installed');
+      }
+      if (statusElement) {
+        statusElement.textContent = '❌ Не установлено';
+      }
+    }
+  } catch (error) {
+    console.error('Uninstall error:', error);
+  }
+}
+
+// Check installed programs
 async function checkInstalledPrograms() {
-  // Disabled to avoid errors with path checking
+  Object.values(PROGRAMS).forEach(category => {
+    category.programs.forEach(async program => {
+      try {
+        const isInstalled = await window.electronAPI.checkInstalled(program.id);
+        const statusElement = document.getElementById(`status-${program.id}`);
+        const card = document.querySelector(`[data-program-id="${program.id}"]`);
+        
+        if (isInstalled) {
+          installedPrograms.add(program.id);
+          if (card) card.classList.add('installed');
+          if (statusElement) statusElement.textContent = '✅ Установлено';
+        } else {
+          if (statusElement) statusElement.textContent = '❌ Не установлено';
+        }
+      } catch (error) {
+        console.error('Check installation error:', error);
+      }
+    });
+  });
 }
 
 // Update status bar
@@ -231,55 +314,50 @@ function setupSearch() {
   });
 }
 
-// Modal functionality
-function setupModal() {
-  const modal = document.getElementById('customModal');
-  const addBtn = document.getElementById('addCustom');
-  const closeBtn = document.querySelector('.close');
-  const form = document.getElementById('customProgramForm');
-  
-  addBtn.addEventListener('click', () => {
-    modal.style.display = 'block';
-  });
-  
-  closeBtn.addEventListener('click', () => {
-    modal.style.display = 'none';
-  });
-  
-  window.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      modal.style.display = 'none';
-    }
-  });
-  
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    
-    const programData = {
-      name: document.getElementById('customName').value,
-      wingetId: document.getElementById('customWingetId').value,
-      category: document.getElementById('customCategory').value,
-      description: document.getElementById('customDescription').value
-    };
-    
-    addCustomProgram(programData);
-    renderCategories();
-    
-    form.reset();
-    modal.style.display = 'none';
-    
-    updateStatus(`Добавлена программа: ${programData.name}`);
-  });
-}
-
 // Setup event listeners
 function setupEventListeners() {
   document.getElementById('selectAll').addEventListener('click', selectAll);
   document.getElementById('deselectAll').addEventListener('click', deselectAll);
   document.getElementById('installSelected').addEventListener('click', installSelected);
   
+  // Context menu handlers
+  document.getElementById('ctxSelect').addEventListener('click', () => {
+    if (currentContextProgram) {
+      const card = document.querySelector(`[data-program-id="${currentContextProgram.id}"]`);
+      if (selectedPrograms.has(currentContextProgram.id)) {
+        selectedPrograms.delete(currentContextProgram.id);
+        if (card) card.classList.remove('selected');
+      } else {
+        selectedPrograms.add(currentContextProgram.id);
+        if (card) card.classList.add('selected');
+      }
+      updateSelectedCount();
+    }
+    hideContextMenu();
+  });
+  
+  document.getElementById('ctxInstall').addEventListener('click', async () => {
+    if (currentContextProgram) {
+      await installProgram(currentContextProgram);
+    }
+    hideContextMenu();
+  });
+  
+  document.getElementById('ctxUninstall').addEventListener('click', async () => {
+    if (currentContextProgram) {
+      await uninstallProgram(currentContextProgram);
+    }
+    hideContextMenu();
+  });
+  
+  // Hide context menu on click outside
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.context-menu') && !e.target.closest('.program-card')) {
+      hideContextMenu();
+    }
+  });
+  
   setupSearch();
-  setupModal();
   
   // Listen for install progress
   window.electronAPI.onInstallProgress((data) => {
