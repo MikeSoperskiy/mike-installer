@@ -1,15 +1,97 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const axios = require('axios');
 const fs = require('fs');
 const os = require('os');
-const Registry = require('winreg');
 
 const execAsync = promisify(exec);
 
 let mainWindow;
+
+// Standard installation paths for programs
+const INSTALL_PATHS = {
+  chrome: [
+    'Google\\Chrome\\Application\\chrome.exe',
+    'Google\\Chrome\\Application'
+  ],
+  firefox: [
+    'Mozilla Firefox\\firefox.exe',
+    'Mozilla Firefox'
+  ],
+  vivaldi: [
+    'Vivaldi\\Application\\vivaldi.exe'
+  ],
+  vscode: [
+    'Microsoft VS Code\\Code.exe',
+    'Programs\\Microsoft VS Code\\Code.exe'
+  ],
+  git: [
+    'Git\\bin\\git.exe',
+    'Git\\cmd\\git.exe'
+  ],
+  'github-desktop': [
+    'GitHub Desktop\\GitHubDesktop.exe'
+  ],
+  python: [
+    'Python312\\python.exe',
+    'Python311\\python.exe',
+    'Python310\\python.exe'
+  ],
+  nodejs: [
+    'nodejs\\node.exe'
+  ],
+  rust: [
+    '.cargo\\bin\\rustc.exe'
+  ],
+  go: [
+    'Go\\bin\\go.exe'
+  ],
+  '7zip': [
+    '7-Zip\\7z.exe'
+  ],
+  notepadplusplus: [
+    'Notepad++\\notepad++.exe'
+  ],
+  steam: [
+    'Steam\\steam.exe'
+  ],
+  discord: [
+    'Discord\\Discord.exe'
+  ],
+  vlc: [
+    'VideoLAN\\VLC\\vlc.exe'
+  ],
+  telegram: [
+    'Telegram Desktop\\Telegram.exe'
+  ]
+};
+
+// Check if program is installed by checking standard paths
+function checkProgramInstalled(programId) {
+  const paths = INSTALL_PATHS[programId] || [];
+  const basePaths = [
+    process.env['ProgramFiles'],
+    process.env['ProgramFiles(x86)'],
+    process.env['LOCALAPPDATA'],
+    path.join(os.homedir(), 'AppData', 'Local'),
+    path.join(os.homedir())
+  ];
+
+  for (const basePath of basePaths) {
+    if (!basePath) continue;
+    for (const programPath of paths) {
+      const fullPath = path.join(basePath, programPath);
+      if (fs.existsSync(fullPath)) {
+        console.log(`[FOUND] ${programId} at ${fullPath}`);
+        return true;
+      }
+    }
+  }
+  
+  return false;
+}
 
 // Download file using axios with progress
 async function downloadFile(url, destPath, onProgress) {
@@ -21,7 +103,7 @@ async function downloadFile(url, destPath, onProgress) {
       maxRedirects: 5,
       timeout: 60000,
       httpsAgent: new (require('https').Agent)({
-        rejectUnauthorized: false // For problematic SSL certificates
+        rejectUnauthorized: false
       })
     });
 
@@ -52,48 +134,6 @@ async function downloadFile(url, destPath, onProgress) {
   }
 }
 
-// Check if program is installed via Windows Registry
-async function checkInstalled(programName) {
-  return new Promise((resolve) => {
-    const regPaths = [
-      '\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
-      '\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall'
-    ];
-
-    let checked = 0;
-    let found = false;
-
-    regPaths.forEach(regPath => {
-      const regKey = new Registry({
-        hive: Registry.HKLM,
-        key: regPath
-      });
-
-      regKey.keys((err, items) => {
-        checked++;
-        if (!err && items) {
-          items.forEach(item => {
-            item.values((err, values) => {
-              if (!err && values) {
-                values.forEach(value => {
-                  if (value.name === 'DisplayName' && 
-                      value.value.toLowerCase().includes(programName.toLowerCase())) {
-                    found = true;
-                  }
-                });
-              }
-            });
-          });
-        }
-        
-        if (checked === regPaths.length) {
-          setTimeout(() => resolve(found), 500);
-        }
-      });
-    });
-  });
-}
-
 // Check if winget is available
 async function checkWinget() {
   try {
@@ -105,6 +145,9 @@ async function checkWinget() {
 }
 
 function createWindow() {
+  // Remove default menu
+  Menu.setApplicationMenu(null);
+  
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -116,8 +159,8 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js')
     },
     icon: path.join(__dirname, '../assets/icon.png'),
-    backgroundColor: '#e0e5ec',
-    titleBarStyle: 'default',
+    backgroundColor: '#1a2332',
+    autoHideMenuBar: true,
     frame: true
   });
 
@@ -148,12 +191,65 @@ app.on('window-all-closed', () => {
 });
 
 // Check if a program is installed
-ipcMain.handle('check-installed', async (event, programName) => {
+ipcMain.handle('check-installed', async (event, programId) => {
   try {
-    return await checkInstalled(programName);
+    return checkProgramInstalled(programId);
   } catch (error) {
-    console.error(`Check installed error for ${programName}:`, error.message);
+    console.error(`Check installed error for ${programId}:`, error.message);
     return false;
+  }
+});
+
+// Uninstall a program
+ipcMain.handle('uninstall-program', async (event, program) => {
+  try {
+    mainWindow.webContents.send('install-progress', {
+      programId: program.id,
+      status: 'uninstalling',
+      message: `Удаление ${program.name}...`
+    });
+
+    // Try winget uninstall first
+    if (program.wingetId) {
+      const wingetAvailable = await checkWinget();
+      if (wingetAvailable) {
+        const command = `winget uninstall --id "${program.wingetId}" --silent`;
+        console.log(`[UNINSTALL] ${command}`);
+        
+        await execAsync(command, { 
+          timeout: 300000,
+          maxBuffer: 1024 * 1024 * 10
+        });
+        
+        mainWindow.webContents.send('install-progress', {
+          programId: program.id,
+          status: 'completed',
+          message: `${program.name} удалён`
+        });
+        
+        return { success: true };
+      }
+    }
+    
+    // If winget not available, show manual uninstall instructions
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Удаление программы',
+      message: `Удалите ${program.name} через "Параметры > Приложения"`,
+      buttons: ['ОК']
+    });
+    
+    return { success: false, error: 'Manual uninstall required' };
+  } catch (error) {
+    console.error(`[ERROR] Uninstall failed for ${program.name}:`, error);
+    
+    mainWindow.webContents.send('install-progress', {
+      programId: program.id,
+      status: 'error',
+      message: `Ошибка удаления: ${error.message}`
+    });
+
+    return { success: false, error: error.message };
   }
 });
 
@@ -186,7 +282,7 @@ ipcMain.handle('install-program', async (event, program) => {
       console.log(`[WINGET] ${command}`);
       
       const { stdout, stderr } = await execAsync(command, { 
-        timeout: 600000, // 10 minutes
+        timeout: 600000,
         maxBuffer: 1024 * 1024 * 10
       });
       
@@ -201,7 +297,6 @@ ipcMain.handle('install-program', async (event, program) => {
         message: `Скачивание ${program.name}...`
       });
       
-      // Determine file extension
       const extension = program.downloadUrl.includes('.msi') || program.installArgs?.includes('msiexec') ? '.msi' : '.exe';
       installerPath = path.join(tempDir, `mike_installer_${program.id}_${Date.now()}${extension}`);
       
@@ -223,7 +318,6 @@ ipcMain.handle('install-program', async (event, program) => {
         message: `Установка ${program.name}...`
       });
       
-      // Run installer
       const installArgs = program.installArgs || (extension === '.msi' ? '/quiet /norestart' : '/S');
       const command = extension === '.msi' 
         ? `msiexec /i "${installerPath}" ${installArgs}`
@@ -232,14 +326,13 @@ ipcMain.handle('install-program', async (event, program) => {
       console.log(`[INSTALL] ${command}`);
       
       const { stdout, stderr } = await execAsync(command, {
-        timeout: 600000, // 10 minutes
+        timeout: 600000,
         maxBuffer: 1024 * 1024 * 10
       });
       
       console.log(`[INSTALL SUCCESS] ${program.name}`);
       if (stderr) console.error(`[INSTALL STDERR]`, stderr);
       
-      // Clean up installer
       setTimeout(() => {
         try {
           if (fs.existsSync(installerPath)) {
@@ -264,7 +357,6 @@ ipcMain.handle('install-program', async (event, program) => {
   } catch (error) {
     console.error(`[ERROR] Installation failed for ${program.name}:`, error);
     
-    // Clean up on error
     if (installerPath && fs.existsSync(installerPath)) {
       try {
         fs.unlinkSync(installerPath);
