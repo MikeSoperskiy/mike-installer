@@ -13,22 +13,36 @@
       <p class="subtitle">Быстрая установка всех необходимых программ</p>
     </header>
 
-    <div class="controls">
-      <button id="selectAll" class="btn btn-secondary">Выбрать всё</button>
-      <button id="deselectAll" class="btn btn-secondary">Снять выбор</button>
-      <button id="installSelected" class="btn btn-primary">Установить выбранное</button>
-      <button id="addCustom" class="btn btn-accent">➕ Добавить программу</button>
-    </div>
-
     <div class="search-box">
       <input type="text" id="searchInput" placeholder="🔍 Поиск программ...">
+    </div>
+
+    <div class="batch-controls">
+      <button id="selectAll" class="btn btn-secondary">Выбрать всё</button>
+      <button id="deselectAll" class="btn btn-secondary">Снять выбор</button>
+      <button id="installSelected" class="btn btn-primary">Установить выбранное (<span id="selectedCountInline">0</span>)</button>
     </div>
 
     <div class="categories" id="categoriesContainer"></div>
 
     <div class="status-bar" id="statusBar">
-      <span id="statusText">Готов к установке</span>
-      <span id="selectedCount">Выбрано: 0</span>
+      <span id="statusText">Готов к работе</span>
+    </div>
+  </div>
+
+  <!-- Context menu -->
+  <div id="contextMenu" class="context-menu" style="display: none;">
+    <div class="context-item" id="ctxSelect">
+      <span class="ctx-icon">✓</span>
+      <span class="ctx-text">Выбрать для пакетной установки</span>
+    </div>
+    <div class="context-item" id="ctxInstall">
+      <span class="ctx-icon">📥</span>
+      <span class="ctx-text">Установить</span>
+    </div>
+    <div class="context-item" id="ctxUninstall">
+      <span class="ctx-icon">🗑️</span>
+      <span class="ctx-text">Удалить</span>
     </div>
   </div>
 
@@ -39,9 +53,9 @@
       <h2>Добавить программу</h2>
       <form id="customProgramForm">
         <input type="text" id="customName" placeholder="Название программы" required>
-        <input type="text" id="customWingetId" placeholder="Winget ID (например: Google.Chrome)" required>
-        <input type="text" id="customCategory" placeholder="Категория" required>
-        <textarea id="customDescription" placeholder="Описание (опционально)"></textarea>
+        <input type="text" id="customWingetId" placeholder="Winget ID (например: Google.Chrome)">
+        <input type="text" id="customDownloadUrl" placeholder="URL для скачивания">
+        <textarea id="customDescription" placeholder="Описание"></textarea>
         <button type="submit" class="btn btn-primary">Добавить</button>
       </form>
     </div>
