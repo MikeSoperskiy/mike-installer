@@ -136,9 +136,3 @@ npm run build:linux
 - GitHub: [@MikeSoperskiy](https://github.com/MikeSoperskiy)
 
 ---
-
-<div align="center">
-
-**Сделано с ❤️ для упрощения установки программ**
-
-</div>
